@@ -23,10 +23,10 @@
 	<?php endif;?>
 </p>
 
-<form class="rv-gravity-bulk-export-form" action="?action=rv_gravity_bulk_export" method="POST">
+<form class="rv-gravity-bulk-export-form" action="?action=rv_gravity_bulk_export&amp;stage=<?php echo $stage;?>" method="POST">
 
 	<ul>
-		<?php if (!$forms):?>
+		<?php if ($stage == 1):?>
 		<li>
 			<label for="gf-bulk-sites">
 				Sites from which to export
@@ -37,7 +37,7 @@
 				<?php endforeach;?>
 			</select>
 		</li>
-		<?php else:?>
+		<?php elseif ($stage == 2):?>
 		<li>
 			<label for="gf-bulk-forms">
 				Forms to export
@@ -49,6 +49,31 @@
 				<?php endforeach;?>
 			</select>
 		</li>
+		<?php elseif ($stage == 3):?>
+		<li>
+			<input id="gf-bulk-combine" name="gf-bulk-combine" type="checkbox" value="1">
+			<label for="gf-bulk-combine">Combine entries into one export file?</label>
+		</li>
+		<li style="display: none">
+			<label for="gf-bulk-fields">Select which fields to export (note: only fields which exist in all selected forms are shown)</label>
+			<select id="gf-bulk-fields" name="gf-bulk-fields[]" multiple>
+				<?php foreach ($fields as $field):?>
+
+				<?php endforeach;?>
+			</select>
+		</li>
+		<script type="text/javascript">
+			var gfbeCombine = document.getElementById('gf-bulk-combine');
+			var gfbeFieldsWrapper = document.getElementById('gf-bulk-fields').parentNode;
+			gfbeCombine.addEventListener('change', function () {
+				if (gfbeCombine.checked) {
+					gfbeFieldsWrapper.style.display = 'list-item';
+				} else {
+					gfbeFieldsWrapper.style.display = 'none';
+				}
+			});
+		</script>
+		<?php elseif ($stage == 4):?>
 		<li>
 			<label for="gf-bulk-date-start">Start date <span class="label-help">in <code>dd/mm/yyyy</code> format</span></label>
 			<input id="gf-bulk-date-start" name="gf-bulk-date-start" type="date">
@@ -61,7 +86,7 @@
 		<?php endif;?>
 	</ul>
 
-	<?php if (!$forms):?>
+	<?php if ($stage < 4):?>
 	<button type="submit">Next</button>
 	<?php else:?>
 	<button type="submit">Export</button>

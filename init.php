@@ -9,19 +9,60 @@ require_once($plugdir.'inc/export-class.php');
 
 class rv_gravity_bulk_export {
 
+	/**
+	 * Creates the plugin's menu entry
+	 */
 	public static function create_menu() {
 		add_menu_page('Gravity Bulk Export', 'Gravity Bulk Export', 'gform_full_access', 'gravity-bulk-export', array('rv_gravity_bulk_export', 'render_export_page'));
 	}
 
+	/**
+	 * Calls the appropriate render function based on the current stage
+	 */
 	public static function render_export_page() {
+		global $plugdir;
 
-		if (is_multisite() && empty($_GET['site_ids'])) {
-			// Get all sites if none selected yet
-			$sites = wp_get_sites();
-			$sites = array_map(function ($site) {
-				return (object) get_blog_details($site['blog_id'], $getall = TRUE);
-			}, $sites);
+		if (is_multisite()) {
+			// Multisite flow
+			// Stage 3
+			if (!empty($_GET['form_ids'])) {
+				self::stage3();
+			}
+			// Stage 2
+			elseif (!empty($_GET['site_ids'])) {
+				self::stage2();
+			// Stage 1
+			} else {
+				self::stage1();
+			}
 		} else {
+			// Normal flow
+			if (!empty($_POST['gf-bulk-forms'])) {
+				self::stage3();
+			} else {
+				self::stage2();
+			}
+		}
+	}
+
+	/**
+	 * Stage 1 - selecting sites (multisite installations only)
+	 */
+	private static function stage1 () {
+		$sites = wp_get_sites();
+		$sites = array_map(function ($site) {
+			return (object) get_blog_details($site['blog_id'], $getall = TRUE);
+		}, $sites);
+
+		$stage = 1;
+		include($plugdir.'views/export.php');
+	}
+
+	/**
+	 * Stage 2 - selecting forms
+	 */
+	private static function stage2 () {
+		if (is_multisite()) {
 			// Get forms from sites selected
 			$sites = explode(',', $_GET['site_ids']);
 			$forms = array();
@@ -35,20 +76,54 @@ class rv_gravity_bulk_export {
 				$forms = array_merge($forms, $site_forms);
 				restore_current_blog();
 			}
+		} else {
+			$forms = rv_gravity::get_forms();
 		}
-
-		include('views/export.php');
+		
+		$stage = 2;
+		include($plugdir.'views/export.php');
 	}
 
+	/**
+	 * Stage 3 - combine option and selecting fields
+	 */
+	private static function stage3 () {
+		$stage = 3;
+		$forms = explode(',', $_GET['form_ids']);
+		include($plugdir.'views/export.php');
+	}
+
+	/**
+	 * Stage 4 - date range selection
+	 */
+	private static function stage4 () {
+		$stage = 4;
+		include($plugdir.'views/export.php');
+	}
+
+	/**
+	 * Processes form submission and routes accordingly
+	 */
 	public static function process_form() {
-		if (!empty($_POST['gf-bulk-sites'])) {
+		$stage = $_GET['stage'];
+		if ($stage == 2) {
+			$forms = implode(',', $_POST['gf-bulk-forms']);
+			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&stage=3&form_ids='.$forms));
+		} elseif ($stage == 1) {
 			$sites = implode(',', $_POST['gf-bulk-sites']);
-			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&site_ids='.$sites));
-		} elseif (!empty($_POST['gf-bulk-forms'])) {
+			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&stage=2&site_ids='.$sites));
+		} elseif ($stage == 3) {
+			$combine = !empty($_POST['gf-bulk-combine']) ? 1 : 0;
+			$fields = implode(',', $_POST['fields']);
+			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&stage=4&combine='.$combine.'&fields='.$fields));
+		} elseif ($stage == 4) {
 			self::do_export();
 		}
 	}
 
+	/**
+	 * Does the actual export
+	 */
 	public static function do_export() {
 		global $plugdir;
 
