@@ -7,13 +7,14 @@
 Class rv_gravity {
 	public static function get_forms() {
 		global $wpdb;
-		$forms = $wpdb->get_results("SELECT * FROM wp_rg_form");
+		$forms = $wpdb->get_results("SELECT * FROM ".$wpdb->prefix."rg_form");
 
 		return $forms;
 	}
 
 	public static function get_form($form_id) {
-		$result = mysql_query("SELECT * FROM wp_rg_form WHERE id='$form_id' LIMIT 1");
+		global $wpdb;
+		$result = mysql_query("SELECT * FROM ".$wpdb->prefix."rg_form WHERE id='$form_id' LIMIT 1");
 		if ($result) {
 			$form = mysql_fetch_object($result);
 		} else {
@@ -24,7 +25,8 @@ Class rv_gravity {
 	}
 
 	public static function get_form_meta($form_id) {
-		$result = mysql_query("SELECT display_meta FROM wp_rg_form_meta WHERE form_id='$form_id' LIMIT 1");
+		global $wpdb;
+		$result = mysql_query("SELECT display_meta FROM ".$wpdb->prefix."rg_form_meta WHERE form_id='$form_id' LIMIT 1");
 
 		$row = mysql_fetch_object($result);
 
@@ -43,7 +45,8 @@ Class rv_gravity {
 	}
 
 	public static function get_entry_detail($entry_id) {
-		$result = mysql_query("SELECT * FROM wp_rg_lead_detail WHERE lead_id=$entry_id");
+		global $wpdb;
+		$result = mysql_query("SELECT * FROM ".$wpdb->prefix."rg_lead_detail WHERE lead_id=$entry_id");
 
 		$values = array();
 		while ($row = mysql_fetch_object($result)) {
@@ -81,19 +84,20 @@ Class rv_gravity {
 	}
 
 	public static function get_form_entries($form_id, $date_from = FALSE, $date_to = FALSE) {
+		global $wpdb;
 
 		// Get labels keyed by ID
 		$labels_by_id = self::get_form_labels_by_id($form_id);
 
 		// Build query
 		if ($date_from && $date_to) {
-			$query = "SELECT * from wp_rg_lead WHERE form_id=$form_id AND date_created > '$date_from' AND date_created < '$date_to'";
+			$query = "SELECT * from ".$wpdb->prefix."rg_lead WHERE form_id=$form_id AND date_created > '$date_from' AND date_created < '$date_to'";
 		} elseif ($date_from) {
-			$query = "SELECT * from wp_rg_lead WHERE form_id=$form_id AND date_created > '$date_from'";
+			$query = "SELECT * from ".$wpdb->prefix."rg_lead WHERE form_id=$form_id AND date_created > '$date_from'";
 		} elseif ($date_to) {
-			$query = "SELECT * from wp_rg_lead WHERE form_id=$form_id AND date_created < '$date_to'";
+			$query = "SELECT * from ".$wpdb->prefix."rg_lead WHERE form_id=$form_id AND date_created < '$date_to'";
 		} else {
-			$query = "SELECT * from wp_rg_lead WHERE form_id=$form_id";
+			$query = "SELECT * from ".$wpdb->prefix."rg_lead WHERE form_id=$form_id";
 		}
 
 		// Get entries
