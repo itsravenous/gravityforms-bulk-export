@@ -24,6 +24,13 @@ Class rv_gravity_export {
 		$entries = rv_gravity::get_form_entries($form_id, $date_from, $date_to);
 		$out = $options['out'];
 
+		// Limit to supplied fields
+		if (!empty($options['fields'])) {
+			$fields = array_filter($fields, function ($field) use ($options) {
+				return in_array($field['label'], $options['fields']);
+			});
+		}
+
 		$csv_rows = array();
 		foreach ($entries as $entry) {
 			$csv_row = array();
@@ -77,7 +84,7 @@ Class rv_gravity_export {
 		}
 		
 		// Format CSV header from fields array
-		$csv_header = rv_gravity::get_form_labels_by_id($form_id);
+		$csv_header = $options['fields'] ? $options['fields'] : rv_gravity::get_form_labels_by_id($form_id);
 
 		// Add meta fields to header
 		$csv_header[] = 'Created By (User Id)';

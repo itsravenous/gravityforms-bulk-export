@@ -119,6 +119,35 @@ Class rv_gravity {
 
 		return $entries;
 	}
+
+	/**
+	 * Returns a list of labels for fields two or more fields have in common
+	 * @param {Array} form IDs
+	 * @return {Array} field labels
+	 */
+	public static function get_common_field_labels ($form_ids) {
+		$is_multisite = is_multisite();
+		$labels = array_map(function ($form_id) use ($is_multisite) {
+			if ($is_multisite) {
+				$id_parts = explode('_', $form_id);
+				$blog_id = $id_parts[0];
+				$form_id = $id_parts[1];
+				switch_to_blog($blog_id);
+			}
+
+			$form = self::get_form($form_id);
+			$form->labels = self::get_form_labels_by_id($form_id);
+			
+			if ($is_multisite) {	
+				restore_current_blog();
+			}
+
+			return $form->labels;
+		}, $form_ids);
+
+		$common_labels = call_user_func_array('array_intersect', $labels);
+		return $common_labels;
+	}
 }
 
 ?>

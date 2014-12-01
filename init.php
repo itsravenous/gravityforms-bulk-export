@@ -7,6 +7,10 @@ $plugdir = dirname(__FILE__) . '/';
 
 require_once($plugdir.'inc/export-class.php');
 
+// Connect to DB
+mysql_connect(DB_HOST, DB_USER, DB_PASSWORD);
+mysql_select_db(DB_NAME);
+
 class rv_gravity_bulk_export {
 
 	/**
@@ -17,6 +21,29 @@ class rv_gravity_bulk_export {
 	}
 
 	/**
+	 * Processes form submission and routes accordingly
+	 */
+	public static function process_form() {
+		$stage = $_GET['stage'];
+		if ($stage == 2) {
+			$forms = implode(',', $_POST['gf-bulk-forms']);
+			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&stage=3&form_ids='.$forms));
+		} elseif ($stage == 1) {
+			$sites = implode(',', $_POST['gf-bulk-sites']);
+			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&stage=2&site_ids='.$sites));
+		} elseif ($stage == 3) {
+			$form_ids = $_POST['gf-bulk-forms'];
+			$combine = !empty($_POST['gf-bulk-combine']) ? 1 : 0;
+			$fields = implode(',', array_map(function ($field) {
+				return urlencode($field);
+			}, $_POST['gf-bulk-fields']));
+			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&stage=4&form_ids='.$form_ids.'&combine='.$combine.'&fields='.$fields));
+		} elseif ($stage == 4) {
+			self::do_export();
+		}
+	}
+
+	/**
 	 * Calls the appropriate render function based on the current stage
 	 */
 	public static function render_export_page() {
@@ -24,8 +51,11 @@ class rv_gravity_bulk_export {
 
 		if (is_multisite()) {
 			// Multisite flow
+			if (!empty($_GET['fields']) || $_GET['stage'] == 4) {
+				self::stage4();
+			}
 			// Stage 3
-			if (!empty($_GET['form_ids'])) {
+			elseif (!empty($_GET['form_ids'])) {
 				self::stage3();
 			}
 			// Stage 2
@@ -37,8 +67,14 @@ class rv_gravity_bulk_export {
 			}
 		} else {
 			// Normal flow
-			if (!empty($_POST['gf-bulk-forms'])) {
+			// Stage 4
+			if (!empty($_GET['fields']) || $_GET['stage'] == 4) {
+				self::stage4();
+			}
+			// Stage 3
+			elseif (!empty($_POST['gf-bulk-forms'])) {
 				self::stage3();
+			// Stage 2
 			} else {
 				self::stage2();
 			}
@@ -49,6 +85,7 @@ class rv_gravity_bulk_export {
 	 * Stage 1 - selecting sites (multisite installations only)
 	 */
 	private static function stage1 () {
+		global $plugdir;
 		$sites = wp_get_sites();
 		$sites = array_map(function ($site) {
 			return (object) get_blog_details($site['blog_id'], $getall = TRUE);
@@ -89,7 +126,12 @@ class rv_gravity_bulk_export {
 	 */
 	private static function stage3 () {
 		$stage = 3;
+		
 		$forms = explode(',', $_GET['form_ids']);
+
+		// Get fields in common
+		$common_labels = rv_gravity::get_common_field_labels($forms);
+
 		include($plugdir.'views/export.php');
 	}
 
@@ -97,28 +139,11 @@ class rv_gravity_bulk_export {
 	 * Stage 4 - date range selection
 	 */
 	private static function stage4 () {
-		$stage = 4;
-		include($plugdir.'views/export.php');
-	}
+		global $plugdir;
 
-	/**
-	 * Processes form submission and routes accordingly
-	 */
-	public static function process_form() {
-		$stage = $_GET['stage'];
-		if ($stage == 2) {
-			$forms = implode(',', $_POST['gf-bulk-forms']);
-			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&stage=3&form_ids='.$forms));
-		} elseif ($stage == 1) {
-			$sites = implode(',', $_POST['gf-bulk-sites']);
-			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&stage=2&site_ids='.$sites));
-		} elseif ($stage == 3) {
-			$combine = !empty($_POST['gf-bulk-combine']) ? 1 : 0;
-			$fields = implode(',', $_POST['fields']);
-			wp_redirect(admin_url('admin.php?page=gravity-bulk-export&stage=4&combine='.$combine.'&fields='.$fields));
-		} elseif ($stage == 4) {
-			self::do_export();
-		}
+		$stage = 4;
+
+		include($plugdir.'views/export.php');
 	}
 
 	/**
@@ -144,7 +169,9 @@ class rv_gravity_bulk_export {
 			$date_end = date('Y-m-d', strtotime(str_replace('/', '-', $date_end)));
 		}
 
-		$form_ids = $_POST['gf-bulk-forms'];
+		$form_ids = explode(',', $_POST['gf-bulk-forms']);
+		$fields = !empty($_POST['gf-bulk-fields']) ? explode(',', $_POST['gf-bulk-fields']) : FALSE;
+		$combine = $_POST['gf-bulk-combine'] == 1;
 
 		$exporter = new rv_gravity_export(array(
 			'db' => array(
@@ -166,6 +193,7 @@ class rv_gravity_bulk_export {
 		}
 
 		// Loop over forms and export to zip
+		$csv_files = array();
 		foreach ($form_ids as $form_id) {
 
 			// Multisite or not?
@@ -198,10 +226,26 @@ class rv_gravity_bulk_export {
 				'date_from' => $date_start,
 				'date_to' => $date_end,
 				'out' => $filename,
+				'fields' => $fields,
 			));
-			$zip->addFile($filename, basename($filename));
+
+			$csv_files[] = $filename;
 
 			restore_current_blog();
+		}
+
+		if ($combine) {
+			$combined_csv = '';
+			foreach ($csv_files as $csv_file) {
+				$combined_csv .= "\n" . file_get_contents($csv_file);
+			}
+			$combined_filename = $plugdir.'export/export-'.$timestamp.'.csv';
+			file_put_contents($combined_filename, $combined_csv);
+			$zip->addFile($combined_filename, basename($combined_filename));
+		} else {
+			foreach ($csv_files as $csv_file) {
+				$zip->addFile($csv_file, basename($csv_file));
+			}
 		}
 
 		$zip->close();

@@ -57,8 +57,8 @@
 		<li style="display: none">
 			<label for="gf-bulk-fields">Select which fields to export (note: only fields which exist in all selected forms are shown)</label>
 			<select id="gf-bulk-fields" name="gf-bulk-fields[]" multiple>
-				<?php foreach ($fields as $field):?>
-
+				<?php foreach ($common_labels as $common_label):?>
+				<option><?php echo $common_label;?></option>
 				<?php endforeach;?>
 			</select>
 		</li>
@@ -73,6 +73,8 @@
 				}
 			});
 		</script>
+
+		<input type="hidden" name="gf-bulk-forms" value="<?php echo $_GET['form_ids'];?>">
 		<?php elseif ($stage == 4):?>
 		<li>
 			<label for="gf-bulk-date-start">Start date <span class="label-help">in <code>dd/mm/yyyy</code> format</span></label>
@@ -83,6 +85,10 @@
 			<label for="gf-bulk-date-end">End date <span class="label-help">in <code>dd/mm/yyyy</code> format</span></label>
 			<input id="gf-bulk-date-end" name="gf-bulk-date-end" type="date">
 		</li>
+
+		<input type="hidden" name="gf-bulk-fields" value="<?php echo $_GET['fields'];?>">
+		<input type="hidden" name="gf-bulk-forms" value="<?php echo $_GET['form_ids'];?>">
+		<input type="hidden" name="gf-bulk-combine" value="<?php echo $_GET['combine'];?>">
 		<?php endif;?>
 	</ul>
 
