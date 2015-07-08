@@ -27,6 +27,7 @@ Class rv_gravity_export {
 		// Limit to supplied fields
 		if (!empty($options['fields'])) {
 			$fields = array_filter($fields, function ($field) use ($options) {
+				$field = (array) $field;
 				return in_array($field['label'], $options['fields']);
 			});
 		}
